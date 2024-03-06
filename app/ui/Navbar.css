@@ -1,0 +1,16 @@
+.surahs::-webkit-scrollbar {
+  width: 8px;
+}
+
+.surahs::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.surahs::-webkit-scrollbar-thumb {
+  background: #15803d;
+  border-radius: 4px;
+}
+
+.surahs::-webkit-scrollbar-thumb:hover {
+  background: #379b5b;
+}
