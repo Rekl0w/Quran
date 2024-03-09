@@ -28,11 +28,15 @@ export default function Navbar() {
       window.localStorage.setItem("selectedLanguage", selectedLanguage);
     }
 
-    getSurahs(selectedLanguage ? selectedLanguage : "tr.yazir").then(
-      (surahs) => {
-        setSurahs(surahs);
-      }
-    );
+    getSurahs(
+      selectedLanguage
+        ? selectedLanguage
+        : window.localStorage.getItem(selectedLanguage)
+        ? window.localStorage.getItem(selectedLanguage)
+        : "tr.yazir"
+    ).then((surahs) => {
+      setSurahs(surahs);
+    });
   }, [selectedLanguage]);
 
   const handleLanguageChange = (event) => {
@@ -52,9 +56,11 @@ export default function Navbar() {
             className="w-full mt-8 p-2 bg-white rounded-md border-none focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50"
           >
             {editions.map((edition) => (
-              <option key={edition.identifier} value={edition.identifier}>
-                {edition.language} - {edition.name}
-              </option>
+              <>
+                <option key={edition.identifier} value={edition.identifier}>
+                  {edition.language} - {edition.name}
+                </option>
+              </>
             ))}
           </select>
         </div>
