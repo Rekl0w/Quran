@@ -1,7 +1,12 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { getSurah, getAyahPng, getAyahAudio, getSurahAudio } from "@/api/Request";
+import {
+  getSurah,
+  getAyahPng,
+  getAyahAudio,
+  getSurahAudio,
+} from "@/api/Request";
 import Loading from "./loading";
 
 export default function Page({ params }) {
@@ -19,9 +24,7 @@ export default function Page({ params }) {
   }, [surah]);
 
   useEffect(() => {
-    getSurahAudio(params.surah).then((audio) => {
-      console.log(audio);
-    });
+    getSurahAudio(params.surah);
   }, [params]);
 
   return (

@@ -3,7 +3,7 @@ import axios from "axios";
 export const getSurahs = async (edition) => {
   try {
     const response = await axios.get(
-      `http://api.alquran.cloud/v1/quran/${edition}`
+      `https://api.alquran.cloud/v1/quran/${edition}`
     );
     return response.data.data.surahs;
   } catch (error) {
@@ -14,7 +14,7 @@ export const getSurahs = async (edition) => {
 export const getSurah = async (surahNumber, edition) => {
   try {
     const response = await axios.get(
-      `http://api.alquran.cloud/v1/surah/${surahNumber}/${edition}`
+      `https://api.alquran.cloud/v1/surah/${surahNumber}/${edition}`
     );
     return response.data.data;
   } catch (error) {
@@ -24,7 +24,7 @@ export const getSurah = async (surahNumber, edition) => {
 
 export const getEditions = async () => {
   try {
-    const response = await axios.get("http://api.alquran.cloud/v1/edition");
+    const response = await axios.get("https://api.alquran.cloud/v1/edition");
     return response.data.data;
   } catch (error) {
     console.error(error);
@@ -45,7 +45,11 @@ export const getAyahPng = async (surahNumber, ayahNumber) => {
 export const getSurahAudio = async (surahNumber) => {
   try {
     const response = await axios.get(
-      `https://cdn.islamic.network/quran/audio/128/ar.alafasy/${surahNumber}.mp3`,
+      `https://cdn.islamic.network/quran/audio-surah/128/ar.alafasy/${surahNumber}.mp3`,
+      {
+        responseType: "blob",
+        Origin: "*",
+      }
     );
     return response.data.data;
   } catch (error) {
