@@ -12,6 +12,13 @@ Quranic is a user-friendly application designed to explore and learn the Quran. 
 - Explore different translations of the Quran
 - Listen to recitations of surahs and ayahs
 
+## Tech Stack
+
+- **React.js:** A JavaScript library for building user interfaces.
+- **Next.js:** A React framework for server-side rendering, static site generation, and more.
+- **Axios:** A promise-based HTTP client for making requests to the backend.
+- **Tailwind CSS:** A utility-first CSS framework for creating custom designs quickly and efficiently.
+
 ## Deployment
 
 ### Quick Access
