@@ -19,7 +19,6 @@ import {
   normalizeEditions,
   setReaderPreferences,
 } from "../lib/utils";
-import LoadingSkeleton from "../components/LoadingSkeleton";
 
 const ReaderPreferencesContext = createContext(null);
 
@@ -97,15 +96,16 @@ export const ReaderPreferencesProvider = ({ children }) => {
       editions: preferences.editions,
       primaryEdition: preferences.editions[0],
       uiLanguage: preferences.uiLanguage,
+      languageReady,
       setEditions,
       setUiLanguage,
     }),
-    [preferences, setEditions, setUiLanguage]
+    [languageReady, preferences, setEditions, setUiLanguage]
   );
 
   return (
     <ReaderPreferencesContext.Provider value={value}>
-      {languageReady ? children : <LoadingSkeleton />}
+      {children}
     </ReaderPreferencesContext.Provider>
   );
 };

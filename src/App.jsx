@@ -1,9 +1,8 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, useEffect, useState } from "react";
 import { Route, Routes } from "./lib/router";
 import { MotionConfig } from "framer-motion";
 import { Toaster } from "react-hot-toast";
 import Layout from "./components/Layout";
-import LoadingSkeleton from "./components/LoadingSkeleton";
 import { ReaderPreferencesProvider } from "./context/ReaderPreferencesContext";
 import {
   getDarkModePreference,
@@ -33,24 +32,22 @@ function App() {
     <MotionConfig reducedMotion="user">
       <ReaderPreferencesProvider>
         <Toaster position="top-right" />
-        <Suspense fallback={<LoadingSkeleton />}>
-          <Routes>
-            <Route
-              element={
-                <Layout
-                  darkMode={darkMode}
-                  toggleDarkMode={toggleDarkMode}
-                />
-              }
-            >
-              <Route index element={<Home />} />
-              <Route path="surahs" element={<SurahList />} />
-              <Route path="surah/:number/:editions" element={<SurahDetail />} />
-              <Route path="bookmarks" element={<Bookmarks />} />
-              <Route path="*" element={<NotFound />} />
-            </Route>
-          </Routes>
-        </Suspense>
+        <Routes>
+          <Route
+            element={
+              <Layout
+                darkMode={darkMode}
+                toggleDarkMode={toggleDarkMode}
+              />
+            }
+          >
+            <Route index element={<Home />} />
+            <Route path="surahs" element={<SurahList />} />
+            <Route path="surah/:number/:editions" element={<SurahDetail />} />
+            <Route path="bookmarks" element={<Bookmarks />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
+        </Routes>
       </ReaderPreferencesProvider>
     </MotionConfig>
   );

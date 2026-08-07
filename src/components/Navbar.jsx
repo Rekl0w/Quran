@@ -1,7 +1,6 @@
 import PropTypes from "prop-types";
 import { Link, useLocation } from "../lib/router";
 import { Bookmark, BookOpen, Home, List, Moon, Sun } from "lucide-react";
-import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import LanguageSelect from "./LanguageSelect";
 
@@ -28,10 +27,8 @@ const Navbar = ({ darkMode, toggleDarkMode }) => {
     }`;
 
   return (
-    <motion.nav
+    <nav
       aria-label={t("nav.main")}
-      initial={{ y: -100 }}
-      animate={{ y: 0 }}
       className="sticky top-0 z-50 border-b border-gray-200 bg-white/90 shadow-sm backdrop-blur-md dark:border-gray-700 dark:bg-gray-900/90"
     >
       <div className="container mx-auto px-3 sm:px-4">
@@ -87,7 +84,7 @@ const Navbar = ({ darkMode, toggleDarkMode }) => {
           </div>
         </div>
       </div>
-    </motion.nav>
+    </nav>
   );
 };
 

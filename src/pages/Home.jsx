@@ -10,7 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { getSurahs } from "../lib/api";
+import { getEditions, getSurahs } from "../lib/api";
 import { encodeEditions, getLastRead } from "../lib/utils";
 import { useReaderPreferences } from "../context/ReaderPreferencesContext";
 
@@ -26,23 +26,50 @@ const Home = () => {
   const { uiLanguage } = useReaderPreferences();
   const [lastRead] = useState(getLastRead);
   const [lastReadName, setLastReadName] = useState(lastRead?.surahName ?? "");
+  const [lastReadEditionNames, setLastReadEditionNames] = useState([]);
 
   useEffect(() => {
     if (!lastRead) return undefined;
     let active = true;
 
-    getSurahs(uiLanguage)
-      .then((surahs) => {
-        if (active) {
+    Promise.allSettled([getSurahs(uiLanguage), getEditions()]).then(
+      ([surahsResult, editionsResult]) => {
+        if (!active) return;
+
+        if (surahsResult.status === "fulfilled") {
           setLastReadName(
-            surahs.find((surah) => surah.number === lastRead.surahNumber)
+            surahsResult.value.find(
+              (surah) => surah.number === lastRead.surahNumber
+            )
               ?.localizedName ?? lastRead.surahName
           );
+        } else {
+          console.warn(
+            "Last read surah name could not be localized",
+            surahsResult.reason
+          );
         }
-      })
-      .catch((error) => {
-        console.warn("Last read surah name could not be localized", error);
-      });
+
+        if (editionsResult.status === "fulfilled") {
+          const editionNames = new Map(
+            editionsResult.value.map((edition) => [
+              edition.identifier,
+              edition.name,
+            ])
+          );
+          setLastReadEditionNames(
+            lastRead.editions
+              .map((identifier) => editionNames.get(identifier))
+              .filter(Boolean)
+          );
+        } else {
+          console.warn(
+            "Last read translation names could not be loaded",
+            editionsResult.reason
+          );
+        }
+      }
+    );
 
     return () => {
       active = false;
@@ -97,19 +124,22 @@ const Home = () => {
           className="glass rounded-2xl border border-primary-200 p-6 dark:border-primary-900/60 md:p-8"
         >
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-4">
+            <div className="flex min-w-0 items-start gap-4">
               <div className="rounded-xl bg-primary-100 p-3 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">
                 <History aria-hidden="true" className="h-6 w-6" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm font-semibold text-primary-700 dark:text-primary-300">
                   {t("home.continueTitle")}
                 </p>
                 <h2 className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">
                   {t("common.surahName", { name: lastReadName })}
                 </h2>
-                <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                  {t("common.ayah")} {lastRead.ayahNumber} · {lastRead.editions.join(", ")}
+                <p className="mt-1 break-words text-sm text-gray-600 dark:text-gray-300">
+                  {t("common.ayah")} {lastRead.ayahNumber}
+                  {lastReadEditionNames.length > 0
+                    ? ` · ${lastReadEditionNames.join(", ")}`
+                    : null}
                 </p>
               </div>
             </div>
