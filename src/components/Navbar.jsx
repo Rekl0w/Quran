@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation } from "../lib/router";
 import { Bookmark, BookOpen, Home, List, Moon, Sun } from "lucide-react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";

@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { Outlet } from "react-router-dom";
+import { Outlet } from "../lib/router";
 import { useTranslation } from "react-i18next";
 import Navbar from "./Navbar";
 

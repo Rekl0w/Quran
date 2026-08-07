@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "../lib/router";
 import { motion } from "framer-motion";
 import { Bookmark, BookOpen, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";

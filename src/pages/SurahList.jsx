@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "../lib/router";
 import { motion } from "framer-motion";
 import { BookOpen, MapPin, RefreshCw, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes } from "./lib/router";
 import { MotionConfig } from "framer-motion";
 import { Toaster } from "react-hot-toast";
 import Layout from "./components/Layout";
