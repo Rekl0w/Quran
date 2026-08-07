@@ -25,7 +25,7 @@ const AyahCard = ({
       aria-labelledby={`ayah-title-${ayah.numberInSurah}`}
       className="ayah-card glass scroll-mt-24 space-y-5 rounded-2xl border border-gray-200 p-5 dark:border-gray-700 md:p-6"
     >
-      <div className="flex items-center justify-between gap-4 border-b border-gray-200 pb-4 dark:border-gray-700">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-200 pb-4 dark:border-gray-700">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500 to-emerald-600 text-sm font-bold text-white">
             {ayah.numberInSurah}
@@ -38,19 +38,24 @@ const AyahCard = ({
           </h2>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <button
             type="button"
             onClick={() => onPlay(ayah)}
             aria-label={t("detail.playAyah", { number: ayah.numberInSurah })}
             aria-pressed={isActiveAudio}
-            className="rounded-lg p-2 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+            className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${
+              isActiveAudio
+                ? "border-primary-500 bg-primary-600 text-white"
+                : "border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100 dark:border-primary-800 dark:bg-primary-950/50 dark:text-primary-200 dark:hover:bg-primary-900/60"
+            }`}
           >
             {isActiveAudio ? (
-              <Volume2 className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+              <Volume2 aria-hidden="true" className="h-5 w-5" />
             ) : (
-              <CirclePlay className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+              <CirclePlay aria-hidden="true" className="h-5 w-5" />
             )}
+            <span>{t("detail.playAyah", { number: ayah.numberInSurah })}</span>
           </button>
           <button
             type="button"

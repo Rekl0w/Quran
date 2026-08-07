@@ -88,13 +88,17 @@ export const getDarkModePreference = () => {
   const saved = readJson(STORAGE_KEYS.darkMode, null);
   if (typeof saved === "boolean") return saved;
 
-  return typeof window !== "undefined"
-    ? window.matchMedia("(prefers-color-scheme: dark)").matches
-    : false;
+  return false;
 };
 
 export const saveDarkModePreference = (enabled) =>
   writeJson(STORAGE_KEYS.darkMode, Boolean(enabled));
+
+export const getTranslationGuideSeen = () =>
+  readJson(STORAGE_KEYS.translationGuideSeen, false) === true;
+
+export const saveTranslationGuideSeen = () =>
+  writeJson(STORAGE_KEYS.translationGuideSeen, true);
 
 export const getBookmarkId = (surahNumber, ayahNumber, editions) =>
   `${Number(surahNumber)}:${Number(ayahNumber)}:${encodeEditions(editions)}`;

@@ -1,7 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, ListMusic, RefreshCw, Share2, Volume2 } from "lucide-react";
+import {
+  ArrowLeft,
+  CirclePlay,
+  Info,
+  ListMusic,
+  RefreshCw,
+  Share2,
+  Volume2,
+} from "lucide-react";
 import AudioPlayer from "react-h5-audio-player";
 import "react-h5-audio-player/lib/styles.css";
 import toast from "react-hot-toast";
@@ -61,6 +69,7 @@ const SurahDetail = () => {
   const [bookmarkedIds, setBookmarkedIds] = useState({});
   const [activeAyah, setActiveAyah] = useState(null);
   const [retryToken, setRetryToken] = useState(0);
+  const audioPlayerRef = useRef(null);
 
   useEffect(() => {
     if (preferredEditionKey !== routeEditionKey) {
@@ -167,6 +176,12 @@ const SurahDetail = () => {
     return () => window.clearTimeout(timer);
   }, [location.hash, loading, surah]);
 
+  useEffect(() => {
+    if (!location.hash) {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    }
+  }, [location.hash, number]);
+
   const activeAudioUrl = useMemo(
     () =>
       activeAyah
@@ -228,11 +243,31 @@ const SurahDetail = () => {
     [bookmarkedIds, number, routeEditions, surah, t]
   );
 
+  const playCurrentAudio = useCallback(() => {
+    const playPromise = audioPlayerRef.current?.audio?.current?.play();
+    playPromise?.catch((playError) => {
+      console.warn("Audio playback could not be started", playError);
+    });
+  }, []);
+
+  const handlePlayFullSurah = useCallback(() => {
+    if (activeAyah) {
+      setActiveAyah(null);
+      return;
+    }
+
+    playCurrentAudio();
+  }, [activeAyah, playCurrentAudio]);
+
   const handlePlayAyah = useCallback(
     (ayah) => {
       if (!surah) return;
 
-      setActiveAyah(ayah);
+      if (activeAyah?.number === ayah.number) {
+        playCurrentAudio();
+      } else {
+        setActiveAyah(ayah);
+      }
       saveLastRead({
         surahNumber: number,
         ayahNumber: ayah.numberInSurah,
@@ -240,7 +275,7 @@ const SurahDetail = () => {
         surahName: surah.localizedName,
       });
     },
-    [number, routeEditions, surah]
+    [activeAyah, number, playCurrentAudio, routeEditions, surah]
   );
 
   const handleEditionChange = useCallback(
@@ -324,7 +359,7 @@ const SurahDetail = () => {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-24">
       <header className="space-y-5">
         <button
           type="button"
@@ -404,45 +439,62 @@ const SurahDetail = () => {
         className="glass rounded-2xl p-5 md:p-6"
         aria-label={t("detail.audio")}
       >
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            {activeAyah ? (
-              <ListMusic aria-hidden="true" className="h-5 w-5 text-primary-600" />
-            ) : (
-              <Volume2 aria-hidden="true" className="h-5 w-5 text-primary-600" />
-            )}
-            <div>
-              <h2
-                className="font-semibold text-gray-900 dark:text-white"
-                aria-live="polite"
-              >
-                {activeAyah
-                  ? t("detail.listeningAyah", {
-                      number: activeAyah.numberInSurah,
-                    })
-                  : t("detail.listenFull")}
-              </h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+        <button
+          type="button"
+          onClick={handlePlayFullSurah}
+          aria-pressed={!activeAyah}
+          className="group mb-4 flex w-full items-center justify-between gap-4 rounded-2xl border border-primary-200 bg-primary-50/80 p-4 text-start transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:bg-primary-100 hover:shadow-md dark:border-primary-800 dark:bg-primary-950/40 dark:hover:border-primary-700 dark:hover:bg-primary-900/50"
+        >
+          <span className="flex items-center gap-3">
+            <span className="rounded-xl bg-primary-600 p-2.5 text-white shadow-sm">
+              <Volume2 aria-hidden="true" className="h-5 w-5" />
+            </span>
+            <span>
+              <span className="block font-semibold text-gray-900 dark:text-white">
+                {t("detail.listenFull")}
+              </span>
+              <span className="block text-xs text-gray-500 dark:text-gray-400">
                 {t("detail.reciter")}
-              </p>
-            </div>
-          </div>
+              </span>
+            </span>
+          </span>
+          <CirclePlay
+            aria-hidden="true"
+            className="h-7 w-7 shrink-0 text-primary-600 transition-transform group-hover:scale-110 dark:text-primary-300"
+          />
+        </button>
 
-          {activeAyah ? (
+        {activeAyah ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="mb-4 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <span className="flex items-center gap-2 text-sm font-medium">
+              <Info aria-hidden="true" className="h-4 w-4 shrink-0" />
+              <span>
+                {t("detail.listeningAyah", {
+                  number: activeAyah.numberInSurah,
+                })}
+              </span>
+            </span>
             <button
               type="button"
-              onClick={() => setActiveAyah(null)}
-              className="text-sm font-medium text-primary-700 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-200"
+              onClick={handlePlayFullSurah}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-100 px-3 py-2 text-sm font-semibold text-amber-900 transition-colors hover:bg-amber-200 dark:bg-amber-900/70 dark:text-amber-100 dark:hover:bg-amber-800"
             >
+              <ListMusic aria-hidden="true" className="h-4 w-4" />
               {t("detail.returnFull")}
             </button>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
+
         <AudioPlayer
+          ref={audioPlayerRef}
           src={activeAudioUrl}
           preload="none"
           className="rounded-xl"
-          autoPlayAfterSrcChange={Boolean(activeAyah)}
+          autoPlayAfterSrcChange
           showJumpControls={false}
           customAdditionalControls={EMPTY_CONTROLS}
         />
@@ -475,7 +527,7 @@ const SurahDetail = () => {
 
       <nav
         aria-label={t("detail.navigation")}
-        className="flex items-center justify-between pt-8"
+        className="flex items-center pt-8"
       >
         {Number(number) > 1 ? (
           <button
@@ -496,7 +548,7 @@ const SurahDetail = () => {
             onClick={() =>
               navigate(`/surah/${Number(number) + 1}/${routeEditionKey}`)
             }
-            className="ms-auto flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-3 text-white transition-colors hover:bg-primary-700 sm:px-6"
+            className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary-600 to-emerald-600 px-4 py-3 font-semibold text-white shadow-2xl ring-1 ring-white/40 transition-all hover:-translate-y-0.5 hover:from-primary-700 hover:to-emerald-700 sm:px-6"
           >
             <span>{t("detail.next")}</span>
             <ArrowLeft aria-hidden="true" className="h-5 w-5 rotate-180 rtl:rotate-0" />

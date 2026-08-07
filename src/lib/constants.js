@@ -122,4 +122,5 @@ export const STORAGE_KEYS = {
   darkMode: "darkMode",
   lastRead: "last_read",
   readerPreferences: "quran_reader_preferences",
+  translationGuideSeen: "quran_translation_guide_seen",
 };
