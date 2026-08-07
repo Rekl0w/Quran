@@ -1,78 +1,87 @@
+import PropTypes from "prop-types";
 import { Link, useLocation } from "react-router-dom";
-import { Moon, Sun, BookOpen, Home, List, Bookmark } from "lucide-react";
+import { Bookmark, BookOpen, Home, List, Moon, Sun } from "lucide-react";
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
+import LanguageSelect from "./LanguageSelect";
 
 const Navbar = ({ darkMode, toggleDarkMode }) => {
   const location = useLocation();
+  const { t } = useTranslation();
 
-  const isActive = (path) => location.pathname === path;
+  const isActive = (path) => {
+    if (path === "/surahs") {
+      return (
+        location.pathname === "/surahs" ||
+        location.pathname.startsWith("/surah/")
+      );
+    }
+
+    return location.pathname === path;
+  };
+
+  const linkClassName = (path) =>
+    `flex items-center gap-2 rounded-lg px-3 py-2 transition-colors ${
+      isActive(path)
+        ? "bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400"
+        : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+    }`;
 
   return (
     <motion.nav
+      aria-label={t("nav.main")}
       initial={{ y: -100 }}
       animate={{ y: 0 }}
-      className="sticky top-0 z-50 backdrop-blur-md bg-white/80 dark:bg-gray-900/80 border-b border-gray-200 dark:border-gray-700 shadow-sm"
+      className="sticky top-0 z-50 border-b border-gray-200 bg-white/90 shadow-sm backdrop-blur-md dark:border-gray-700 dark:bg-gray-900/90"
     >
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2 group">
-            <div className="p-2 bg-gradient-to-br from-primary-500 to-emerald-600 rounded-lg shadow-lg group-hover:shadow-xl transition-all">
-              <BookOpen className="w-6 h-6 text-white" />
+      <div className="container mx-auto px-3 sm:px-4">
+        <div className="flex min-h-16 flex-wrap items-center justify-between gap-2 py-2">
+          <Link
+            to="/"
+            aria-label={t("nav.homeLabel")}
+            className="group flex items-center gap-2"
+          >
+            <div className="rounded-lg bg-gradient-to-br from-primary-500 to-emerald-600 p-2 shadow-lg transition-all group-hover:shadow-xl">
+              <BookOpen aria-hidden="true" className="h-6 w-6 text-white" />
             </div>
-            <span className="text-xl font-bold gradient-text hidden sm:inline">
-              Quran App
+            <span className="gradient-text hidden text-xl font-bold lg:inline">
+              {t("appName")}
             </span>
           </Link>
 
-          {/* Navigation Links */}
-          <div className="flex items-center space-x-6">
-            <Link
-              to="/"
-              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-                isActive("/")
-                  ? "bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400"
-                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-              }`}
-            >
-              <Home className="w-4 h-4" />
-              <span className="hidden sm:inline">Ana Sayfa</span>
+          <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-2">
+            <Link to="/" aria-label={t("nav.home")} className={linkClassName("/")}>
+              <Home aria-hidden="true" className="h-4 w-4" />
+              <span className="hidden md:inline">{t("nav.home")}</span>
             </Link>
-
             <Link
               to="/surahs"
-              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-                isActive("/surahs")
-                  ? "bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400"
-                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-              }`}
+              aria-label={t("nav.surahs")}
+              className={linkClassName("/surahs")}
             >
-              <List className="w-4 h-4" />
-              <span className="hidden sm:inline">Sureler</span>
+              <List aria-hidden="true" className="h-4 w-4" />
+              <span className="hidden md:inline">{t("nav.surahs")}</span>
             </Link>
-
             <Link
               to="/bookmarks"
-              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-                isActive("/bookmarks")
-                  ? "bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400"
-                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-              }`}
+              aria-label={t("nav.bookmarks")}
+              className={linkClassName("/bookmarks")}
             >
-              <Bookmark className="w-4 h-4" />
-              <span className="hidden sm:inline">Yer İmleri</span>
+              <Bookmark aria-hidden="true" className="h-4 w-4" />
+              <span className="hidden md:inline">{t("nav.bookmarks")}</span>
             </Link>
-
-            {/* Dark Mode Toggle */}
+            <LanguageSelect />
             <button
+              type="button"
               onClick={toggleDarkMode}
-              className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-              aria-label="Toggle dark mode"
+              className="rounded-lg bg-gray-100 p-2 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
+              aria-label={t(darkMode ? "nav.lightMode" : "nav.darkMode")}
+              aria-pressed={darkMode}
             >
               {darkMode ? (
-                <Sun className="w-5 h-5 text-yellow-500" />
+                <Sun aria-hidden="true" className="h-5 w-5 text-yellow-500" />
               ) : (
-                <Moon className="w-5 h-5 text-gray-700" />
+                <Moon aria-hidden="true" className="h-5 w-5 text-gray-700" />
               )}
             </button>
           </div>
@@ -80,6 +89,11 @@ const Navbar = ({ darkMode, toggleDarkMode }) => {
       </div>
     </motion.nav>
   );
+};
+
+Navbar.propTypes = {
+  darkMode: PropTypes.bool.isRequired,
+  toggleDarkMode: PropTypes.func.isRequired,
 };
 
 export default Navbar;

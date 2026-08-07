@@ -1,92 +1,59 @@
 # Quran App 🕌
 
-Modern ve güzel bir Kuran-ı Kerim okuma ve dinleme uygulaması. Vite + React + Tailwind CSS ile geliştirilmiştir.
+Çok dilli Kur'an-ı Kerim okuma, meal karşılaştırma ve dinleme uygulaması. Vite,
+React ve Tailwind CSS ile geliştirilmiştir.
 
-## ✨ Özellikler
+## Özellikler
 
-- 📖 114 surenin tamamı
-- 🌍 100+ dil ve çeviri desteği
-- 🎵 Sesli okuma (Sure ve ayet bazlı)
-- 🔍 Gelişmiş arama fonksiyonu
-- 🔖 Yer imi sistemi
-- 🌙 Karanlık mod
-- 📱 Tam responsive tasarım
-- ⚡ Hızlı ve modern arayüz
-- 🎨 Glassmorphism ve modern UI efektleri
-- 🖼️ Arapça ayetlerin kaliteli görselleri
+- Arayüz diliyle birlikte yerelleşen 114 sure adı
+- 48 arayüz dili için klasör tabanlı i18n kaynakları ve kalıcı dil seçimi
+- Arapça ayetlerin görsel yerine seçilebilir ve erişilebilir metni
+- Yalnızca gerçek metin meallerini içeren meal seçimi
+- En fazla dört meali aynı anda yan yana karşılaştırma
+- Sayfalar, önceki/sonraki sureler, yer imleri ve yenilemeler arasında korunan
+  meal grubu
+- Meal grubuyla birlikte saklanan ayet yer imleri
+- Sure adı, sure numarası ve ayet sayısıyla arama
+- Tek, isteğe bağlı yüklenen Alafasy ses oynatıcısı
+- Spinner yerine içeriğe uyumlu ve hareket tercihini gözeten skeleton ekranları
+- Kaldığın yerden devam et kartı
+- Sistem tercihinden başlayan kalıcı karanlık mod
+- Responsive ve klavye/ekran okuyucu dostu arayüz
 
-## 🚀 Teknolojiler
+## Kurulum
 
-- **Vite** - Hızlı build tool
-- **React 18** - UI kütüphanesi
-- **React Router** - Routing
-- **Tailwind CSS** - Styling
-- **Framer Motion** - Animasyonlar
-- **Axios** - HTTP istekleri
-- **React H5 Audio Player** - Audio player
-- **Lucide React** - Modern ikonlar
-- **React Hot Toast** - Bildirimleri
-
-## 📦 Kurulum
+Node.js 24 kullanın.
 
 ```bash
-# Bağımlılıkları yükle
-npm install
-
-# Geliştirme sunucusunu başlat
+npm ci
 npm run dev
-
-# Production build
-npm run build
-
-# Build önizleme
-npm run preview
 ```
 
-## 📖 API
+Üretim doğrulaması:
 
-Bu uygulama [AlQuran Cloud API](https://alquran.cloud) kullanmaktadır.
+```bash
+npm run check
+```
 
-- Sureler: `https://api.alquran.cloud/v1/quran/{edition}`
-- Sure detayı: `https://api.alquran.cloud/v1/surah/{number}/{edition}`
-- Çeviriler: `https://api.alquran.cloud/v1/edition`
-- Sesli okuma: `https://cdn.islamic.network/quran/audio/`
+## Veri kaynakları
 
-## 📱 Özellikler
+- Meal ve Arapça ayet metni: [AlQuran Cloud API](https://alquran.cloud/api)
+- Ses: [Islamic Network CDN](https://alquran.cloud/cdn)
+- Yerelleştirilmiş sure adları: dil bazında tembel yüklenen yerel kataloglar
+- Türkçe adların çevrimdışı yedeği: [Diyanet Kur'an-ı Kerim](https://kuran.diyanet.gov.tr/mushaf)
 
-### Yer İmleri
+Sure listesi için küçük `/surah` metadata endpoint'i kullanılır. Okuma ekranı,
+seçilen 1–4 meal ile `quran-uthmani` Arapça metnini tek istekte eşleştirir. Ses
+dosyaları kullanıcı oynatmayı başlatana kadar indirilmez. Arayüz metinleri ve
+114 sure adı, yalnızca seçilen dile ait dosyalar yüklenerek sunulur.
 
-- Ayetleri yer imlerine ekleyin
-- Yer imleri localStorage'da saklanır
-- Kolayca erişim
+## Yerel veri
 
-### Karanlık Mod
+Arayüz dili, meal grubu, yer imleri, son okunan konum ve tema tercihi
+`localStorage` içinde sürümlü ve güvenli biçimde tutulur. Eski tek-meal
+kayıtları otomatik olarak yeni çoklu-meal biçimine taşınır.
 
-- Otomatik tema değişimi
-- localStorage ile kayıt
-- Göz dostu renkler
+## Lisans
 
-### Arama
-
-- Sure ismi ile arama
-- Ayet sayısı ile arama
-- Anlık sonuçlar
-
-### Sesli Okuma
-
-- Sure bazlı dinleme
-- Ayet bazlı dinleme
-- Kaliteli ses dosyaları (Alafasy)
-
-## 📄 Lisans
-
-Bu proje MIT lisansı altındadır.
-
-## 🙏 Teşekkürler
-
-- [AlQuran Cloud](https://alquran.cloud) - API sağlayıcı
-- [Islamic Network](https://islamic.network) - Ses ve görsel içerik
-
----
-
-**Not:** Bu uygulama eğitim ve ibadete yardımcı olmak amacıyla geliştirilmiştir. Kuran-ı Kerim'in orijinal Arapça metnine danışmak her zaman en iyisidir.
+Bu proje MIT lisansı altındadır. Uygulama eğitim ve ibadete yardımcı olmak için
+hazırlanmıştır; Kur'an-ı Kerim'in orijinal Arapça metni esas kaynaktır.

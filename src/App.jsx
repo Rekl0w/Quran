@@ -1,42 +1,58 @@
-import { Routes, Route } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { Route, Routes } from "react-router-dom";
+import { MotionConfig } from "framer-motion";
+import { Toaster } from "react-hot-toast";
 import Layout from "./components/Layout";
-import Home from "./pages/Home";
-import SurahList from "./pages/SurahList";
-import SurahDetail from "./pages/SurahDetail";
-import Bookmarks from "./pages/Bookmarks";
+import LoadingSkeleton from "./components/LoadingSkeleton";
+import { ReaderPreferencesProvider } from "./context/ReaderPreferencesContext";
+import {
+  getDarkModePreference,
+  saveDarkModePreference,
+} from "./lib/utils";
+
+const Home = lazy(() => import("./pages/Home"));
+const SurahList = lazy(() => import("./pages/SurahList"));
+const SurahDetail = lazy(() => import("./pages/SurahDetail"));
+const Bookmarks = lazy(() => import("./pages/Bookmarks"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 function App() {
-  const [darkMode, setDarkMode] = useState(() => {
-    const saved = localStorage.getItem("darkMode");
-    return saved ? JSON.parse(saved) : false;
-  });
+  const [darkMode, setDarkMode] = useState(getDarkModePreference);
 
   useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-    localStorage.setItem("darkMode", JSON.stringify(darkMode));
+    document.documentElement.classList.toggle("dark", darkMode);
+    document.documentElement.style.colorScheme = darkMode ? "dark" : "light";
+    saveDarkModePreference(darkMode);
   }, [darkMode]);
 
   const toggleDarkMode = () => {
-    setDarkMode(!darkMode);
+    setDarkMode((currentMode) => !currentMode);
   };
 
   return (
-    <Routes>
-      <Route
-        path="/"
-        element={<Layout darkMode={darkMode} toggleDarkMode={toggleDarkMode} />}
-      >
-        <Route index element={<Home />} />
-        <Route path="surahs" element={<SurahList />} />
-        <Route path="surah/:number/:edition" element={<SurahDetail />} />
-        <Route path="bookmarks" element={<Bookmarks />} />
-      </Route>
-    </Routes>
+    <MotionConfig reducedMotion="user">
+      <ReaderPreferencesProvider>
+        <Toaster position="top-right" />
+        <Suspense fallback={<LoadingSkeleton />}>
+          <Routes>
+            <Route
+              element={
+                <Layout
+                  darkMode={darkMode}
+                  toggleDarkMode={toggleDarkMode}
+                />
+              }
+            >
+              <Route index element={<Home />} />
+              <Route path="surahs" element={<SurahList />} />
+              <Route path="surah/:number/:editions" element={<SurahDetail />} />
+              <Route path="bookmarks" element={<Bookmarks />} />
+              <Route path="*" element={<NotFound />} />
+            </Route>
+          </Routes>
+        </Suspense>
+      </ReaderPreferencesProvider>
+    </MotionConfig>
   );
 }
 

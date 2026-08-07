@@ -1,29 +1,25 @@
+import PropTypes from "prop-types";
 import { Outlet } from "react-router-dom";
-import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import Navbar from "./Navbar";
 
 const Layout = ({ darkMode, toggleDarkMode }) => {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 transition-colors duration-300">
-      <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
-      <motion.main
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="container mx-auto px-4 py-8 max-w-7xl"
-      >
-        <Outlet />
-      </motion.main>
+  const { t } = useTranslation();
 
-      {/* Footer */}
-      <footer className="mt-20 border-t border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
+  return (
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-emerald-50 via-white to-teal-50 transition-colors duration-300 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+      <main className="container mx-auto w-full max-w-7xl flex-1 px-4 py-8">
+        <Outlet />
+      </main>
+
+      <footer className="mt-auto shrink-0 border-t border-gray-200 bg-white/50 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-800/50">
         <div className="container mx-auto px-4 py-6 text-center">
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            © {new Date().getFullYear()} Quran App - Made with ❤️ for the Muslim
-            community
+            © {new Date().getFullYear()} {t("appName")} — {t("footer.madeFor")}
           </p>
-          <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
-            Data from{" "}
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            {t("footer.data")}: {" "}
             <a
               href="https://alquran.cloud"
               target="_blank"
@@ -37,6 +33,11 @@ const Layout = ({ darkMode, toggleDarkMode }) => {
       </footer>
     </div>
   );
+};
+
+Layout.propTypes = {
+  darkMode: PropTypes.bool.isRequired,
+  toggleDarkMode: PropTypes.func.isRequired,
 };
 
 export default Layout;

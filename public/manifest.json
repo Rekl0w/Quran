@@ -1,7 +1,7 @@
 {
   "short_name": "Quran App",
   "name": "Quran App - Kuran-ı Kerim",
-  "description": "Kuran-ı Kerim'i farklı dillerde okuyun ve dinleyin",
+  "description": "Kur'an-ı Kerim'i Arapça metni ve farklı meallerle okuyun, dinleyin",
   "icons": [
     {
       "src": "/quran.svg",
@@ -12,5 +12,6 @@
   "start_url": "/",
   "display": "standalone",
   "theme_color": "#16a34a",
-  "background_color": "#ffffff"
+  "background_color": "#f0fdf4",
+  "lang": "tr"
 }

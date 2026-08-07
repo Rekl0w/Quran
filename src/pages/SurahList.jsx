@@ -1,182 +1,212 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, BookOpen, MapPin } from "lucide-react";
-import { getSurahs, getEditions, searchSurahs } from "../lib/api";
-import { formatRevelationType } from "../lib/utils";
-import LoadingSpinner from "../components/LoadingSpinner";
+import { BookOpen, MapPin, RefreshCw, Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { getEditions, getSurahs, searchSurahs } from "../lib/api";
+import { DEFAULT_EDITION } from "../lib/constants";
+import { encodeEditions } from "../lib/utils";
+import { useReaderPreferences } from "../context/ReaderPreferencesContext";
+import EditionSelect from "../components/EditionSelect";
+import LoadingSkeleton from "../components/LoadingSkeleton";
 
 const SurahList = () => {
+  const { t } = useTranslation();
+  const { editions: selectedEditions, setEditions, uiLanguage } =
+    useReaderPreferences();
   const [surahs, setSurahs] = useState([]);
-  const [filteredSurahs, setFilteredSurahs] = useState([]);
-  const [editions, setEditions] = useState([]);
-  const [selectedEdition, setSelectedEdition] = useState("tr.yazir");
+  const [availableEditions, setAvailableEditions] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
-    const loadEditions = async () => {
-      try {
-        const data = await getEditions();
-        setEditions(data);
-      } catch (err) {
-        console.error("Error loading editions:", err);
-      }
-    };
+    let active = true;
 
-    loadEditions();
-  }, []);
+    const loadPageData = async () => {
+      setLoading(true);
+      setError(false);
 
-  useEffect(() => {
-    const loadSurahs = async () => {
       try {
-        setLoading(true);
-        const data = await getSurahs(selectedEdition);
-        setSurahs(data);
-        setFilteredSurahs(data);
-        setError(null);
-      } catch (err) {
-        setError("Sureler yüklenirken bir hata oluştu");
-        console.error("Error loading surahs:", err);
+        const [surahData, editionData] = await Promise.all([
+          getSurahs(uiLanguage),
+          getEditions(),
+        ]);
+
+        if (!active) return;
+        setSurahs(surahData);
+        setAvailableEditions(editionData);
+      } catch (loadError) {
+        if (!active) return;
+        console.error("Surah list could not be loaded", loadError);
+        setError(true);
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
 
-    loadSurahs();
-  }, [selectedEdition]);
+    loadPageData();
+    return () => {
+      active = false;
+    };
+  }, [retryToken, uiLanguage]);
 
   useEffect(() => {
-    const filtered = searchSurahs(surahs, searchQuery);
-    setFilteredSurahs(filtered);
-  }, [searchQuery, surahs]);
+    if (availableEditions.length === 0) return;
+
+    const availableIds = new Set(
+      availableEditions.map((edition) => edition.identifier)
+    );
+    const validSelections = selectedEditions.filter((edition) =>
+      availableIds.has(edition)
+    );
+    if (validSelections.length === selectedEditions.length) return;
+
+    const fallback = availableIds.has(DEFAULT_EDITION)
+      ? DEFAULT_EDITION
+      : availableEditions[0].identifier;
+    setEditions(validSelections.length > 0 ? validSelections : [fallback]);
+  }, [availableEditions, selectedEditions, setEditions]);
+
+  const filteredSurahs = useMemo(
+    () => searchSurahs(surahs, searchQuery, uiLanguage),
+    [searchQuery, surahs, uiLanguage]
+  );
 
   if (loading) {
-    return <LoadingSpinner />;
+    return <LoadingSkeleton variant="surahs" />;
   }
 
   if (error) {
     return (
-      <div className="text-center py-12">
-        <p className="text-red-600 dark:text-red-400">{error}</p>
-      </div>
+      <section className="py-12 text-center" role="alert">
+        <p className="text-red-600 dark:text-red-400">{t("surahs.loadError")}</p>
+        <button
+          type="button"
+          onClick={() => setRetryToken((value) => value + 1)}
+          className="mt-5 inline-flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-3 font-semibold text-white hover:bg-primary-700"
+        >
+          <RefreshCw aria-hidden="true" className="h-5 w-5" />
+          {t("common.retry")}
+        </button>
+      </section>
     );
   }
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <motion.div
+      <motion.header
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="space-y-4"
       >
-        <h1 className="text-4xl md:text-5xl font-bold gradient-text">
-          Sureler
+        <h1 className="gradient-text text-4xl font-bold md:text-5xl">
+          {t("surahs.title")}
         </h1>
-        <p className="text-gray-600 dark:text-gray-400 text-lg">
-          Kuran-ı Kerim'in 114 suresini keşfedin
+        <p className="text-lg text-gray-600 dark:text-gray-300">
+          {t("surahs.intro")}
         </p>
-      </motion.div>
+      </motion.header>
 
-      {/* Filters */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="glass rounded-2xl p-6 space-y-4"
+      <section
+        className="glass space-y-5 rounded-2xl p-6"
+        aria-label={t("surahs.filters")}
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Search */}
+        <div className="space-y-2">
+          <label
+            htmlFor="surah-search"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-200"
+          >
+            {t("surahs.searchLabel")}
+          </label>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search
+              aria-hidden="true"
+              className="absolute start-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
+            />
             <input
-              type="text"
-              placeholder="Sure ara..."
+              id="surah-search"
+              type="search"
+              placeholder={t("surahs.searchPlaceholder")}
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all"
+              onChange={(event) => setSearchQuery(event.target.value)}
+              className="w-full rounded-xl border border-gray-200 bg-white py-3 pe-4 ps-10 text-gray-900 placeholder-gray-400 transition-all focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
             />
           </div>
-
-          {/* Edition Selector */}
-          <select
-            value={selectedEdition}
-            onChange={(e) => setSelectedEdition(e.target.value)}
-            className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all"
-          >
-            {editions.map((edition) => (
-              <option key={edition.identifier} value={edition.identifier}>
-                {edition.language} - {edition.name}
-              </option>
-            ))}
-          </select>
         </div>
 
-        {searchQuery && (
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            {filteredSurahs.length} sure bulundu
-          </p>
-        )}
-      </motion.div>
+        <EditionSelect
+          id="surah-editions"
+          editions={availableEditions}
+          value={selectedEditions}
+          onChange={setEditions}
+        />
 
-      {/* Surah Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredSurahs.map((surah, index) => (
-          <motion.div
+        {searchQuery ? (
+          <p className="text-sm text-gray-600 dark:text-gray-300" aria-live="polite">
+            {t("surahs.found", { count: filteredSurahs.length })}
+          </p>
+        ) : null}
+      </section>
+
+      <section
+        className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
+        aria-label={t("surahs.list")}
+      >
+        {filteredSurahs.map((surah) => (
+          <Link
             key={surah.number}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.02 }}
+            to={`/surah/${surah.number}/${encodeEditions(selectedEditions)}`}
+            className="glass group block rounded-xl border border-gray-200 p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:border-gray-700"
           >
-            <Link
-              to={`/surah/${surah.number}/${selectedEdition}`}
-              className="block glass rounded-xl p-6 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group border border-gray-200 dark:border-gray-700"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-gradient-to-br from-primary-500 to-emerald-600 text-white font-bold shadow-lg group-hover:scale-110 transition-transform">
-                      {surah.number}
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
-                        {surah.englishName}
-                      </h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {surah.englishNameTranslation}
-                      </p>
-                    </div>
-                  </div>
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500 to-emerald-600 font-bold text-white shadow-lg transition-transform group-hover:scale-110">
+                  {surah.number}
                 </div>
-                <div className="arabic-text text-2xl text-gray-800 dark:text-white font-bold">
-                  {surah.name}
-                </div>
+                <h2 className="text-lg font-semibold text-gray-900 transition-colors group-hover:text-primary-600 dark:text-white dark:group-hover:text-primary-400">
+                  {t("common.surahName", { name: surah.localizedName })}
+                </h2>
               </div>
+              <div
+                lang="ar"
+                dir="rtl"
+                className="arabic-text shrink-0 text-2xl font-bold text-gray-800 dark:text-white"
+              >
+                {surah.name}
+              </div>
+            </div>
 
-              <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
-                <div className="flex items-center space-x-2">
-                  <MapPin className="w-4 h-4" />
-                  <span>{formatRevelationType(surah.revelationType)}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <BookOpen className="w-4 h-4" />
-                  <span>{surah.numberOfAyahs} Ayet</span>
-                </div>
+            <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-300">
+              <div className="flex items-center gap-2">
+                <MapPin aria-hidden="true" className="h-4 w-4" />
+                <span>
+                  {t(
+                    surah.revelationType === "Meccan"
+                      ? "common.meccan"
+                      : "common.medinan"
+                  )}
+                </span>
               </div>
-            </Link>
-          </motion.div>
+              <div className="flex items-center gap-2">
+                <BookOpen aria-hidden="true" className="h-4 w-4" />
+                <span>
+                  {t("common.ayahCountLabel", {
+                    value: surah.numberOfAyahs,
+                  })}
+                </span>
+              </div>
+            </div>
+          </Link>
         ))}
-      </div>
+      </section>
 
-      {filteredSurahs.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-gray-600 dark:text-gray-400">
-            Aradığınız kriterlere uygun sure bulunamadı.
-          </p>
+      {filteredSurahs.length === 0 ? (
+        <div className="py-12 text-center">
+          <p className="text-gray-600 dark:text-gray-300">{t("surahs.noResults")}</p>
         </div>
-      )}
+      ) : null}
     </div>
   );
 };

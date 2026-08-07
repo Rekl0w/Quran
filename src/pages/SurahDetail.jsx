@@ -1,322 +1,508 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import {
-  ArrowLeft,
-  Volume2,
-  Copy,
-  Bookmark,
-  BookmarkCheck,
-  Share2,
-} from "lucide-react";
+import { ArrowLeft, ListMusic, RefreshCw, Share2, Volume2 } from "lucide-react";
 import AudioPlayer from "react-h5-audio-player";
 import "react-h5-audio-player/lib/styles.css";
+import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
 import {
+  getAyahAudioUrl,
+  getEditions,
   getSurah,
   getSurahAudioUrl,
-  getAyahAudioUrl,
-  getAyahImageUrl,
+  isRequestCanceled,
 } from "../lib/api";
 import {
-  saveLastRead,
-  isBookmarked,
   addBookmark,
-  removeBookmark,
   copyToClipboard,
+  encodeEditions,
+  getBookmarkId,
+  getBookmarks,
+  parseEditionsParam,
+  removeBookmark,
+  saveLastRead,
 } from "../lib/utils";
-import LoadingSpinner from "../components/LoadingSpinner";
-import toast, { Toaster } from "react-hot-toast";
+import { useReaderPreferences } from "../context/ReaderPreferencesContext";
+import AyahCard from "../components/AyahCard";
+import EditionSelect from "../components/EditionSelect";
+import LoadingSkeleton from "../components/LoadingSkeleton";
+
+const EMPTY_CONTROLS = [];
 
 const SurahDetail = () => {
-  const { number, edition } = useParams();
+  const { number, editions: editionParam } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
+  const {
+    editions: preferredEditions,
+    setEditions,
+    uiLanguage,
+  } = useReaderPreferences();
+  const preferredEditionKey = encodeEditions(preferredEditions);
+  const routeEditionKey = useMemo(
+    () =>
+      encodeEditions(
+        parseEditionsParam(editionParam, preferredEditionKey.split(","))
+      ),
+    [editionParam, preferredEditionKey]
+  );
+  const routeEditions = useMemo(
+    () => routeEditionKey.split(","),
+    [routeEditionKey]
+  );
+
   const [surah, setSurah] = useState(null);
+  const [availableEditions, setAvailableEditions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [bookmarks, setBookmarks] = useState({});
+  const [editionError, setEditionError] = useState(false);
+  const [bookmarkedIds, setBookmarkedIds] = useState({});
+  const [activeAyah, setActiveAyah] = useState(null);
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
+    if (preferredEditionKey !== routeEditionKey) {
+      setEditions(routeEditions);
+    }
+  }, [preferredEditionKey, routeEditionKey, routeEditions, setEditions]);
+
+  useEffect(() => {
+    let active = true;
+
+    getEditions()
+      .then((editions) => {
+        if (active) setAvailableEditions(editions);
+      })
+      .catch((loadError) => {
+        if (!active) return;
+        console.error("Translation choices could not be loaded", loadError);
+        setEditionError(true);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+
     const loadSurah = async () => {
+      setLoading(true);
+      setError(null);
+      setSurah(null);
+      setActiveAyah(null);
+
       try {
-        setLoading(true);
-        const data = await getSurah(number, edition);
-        setSurah(data);
-        saveLastRead(number, edition);
-
-        // Initialize bookmarks
-        const bookmarksState = {};
-        data.ayahs.forEach((ayah, index) => {
-          bookmarksState[index + 1] = isBookmarked(parseInt(number), index + 1);
+        const data = await getSurah(number, routeEditions, {
+          signal: controller.signal,
+          language: uiLanguage,
         });
-        setBookmarks(bookmarksState);
+        if (!active) return;
 
-        setError(null);
-      } catch (err) {
-        setError("Sure yüklenirken bir hata oluştu");
-        console.error("Error loading surah:", err);
+        const bookmarkSet = new Set(
+          getBookmarks(routeEditions).map((bookmark) => bookmark.id)
+        );
+        const nextBookmarkedIds = Object.fromEntries(
+          data.ayahs.map((ayah) => {
+            const bookmarkId = getBookmarkId(
+              number,
+              ayah.numberInSurah,
+              routeEditions
+            );
+            return [bookmarkId, bookmarkSet.has(bookmarkId)];
+          })
+        );
+
+        setSurah(data);
+        setBookmarkedIds(nextBookmarkedIds);
+        saveLastRead({
+          surahNumber: number,
+          ayahNumber: 1,
+          editions: routeEditions,
+          surahName: data.localizedName,
+        });
+      } catch (loadError) {
+        if (!active || isRequestCanceled(loadError)) return;
+
+        console.error("Surah could not be loaded", loadError);
+        setError(
+          loadError.code === "INVALID_SURAH_SELECTION" ||
+            loadError.code === "TRANSLATION_UNAVAILABLE"
+            ? "detail.invalid"
+            : "detail.loadError"
+        );
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
 
     loadSurah();
-  }, [number, edition]);
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [
+    number,
+    retryToken,
+    routeEditionKey,
+    routeEditions,
+    uiLanguage,
+  ]);
 
-  // Scroll to ayah if hash is present
   useEffect(() => {
-    if (location.hash && !loading) {
-      const ayahId = location.hash.replace("#", "");
-      const element = document.getElementById(ayahId);
-      if (element) {
-        setTimeout(() => {
-          element.scrollIntoView({ behavior: "smooth", block: "center" });
-        }, 500);
+    if (!location.hash || loading || !surah) return undefined;
+
+    const ayahId = location.hash.slice(1);
+    const timer = window.setTimeout(() => {
+      document.getElementById(ayahId)?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 150);
+
+    return () => window.clearTimeout(timer);
+  }, [location.hash, loading, surah]);
+
+  const activeAudioUrl = useMemo(
+    () =>
+      activeAyah
+        ? getAyahAudioUrl(activeAyah.number)
+        : getSurahAudioUrl(number),
+    [activeAyah, number]
+  );
+
+  const handleCopyAyah = useCallback(
+    async (ayahText, ayahNumber) => {
+      const success = await copyToClipboard(ayahText);
+      toast[success ? "success" : "error"](
+        t(success ? "detail.copied" : "detail.copyFailed", {
+          number: ayahNumber,
+        })
+      );
+    },
+    [t]
+  );
+
+  const handleBookmark = useCallback(
+    (ayah) => {
+      if (!surah) return;
+
+      const bookmarkId = getBookmarkId(
+        number,
+        ayah.numberInSurah,
+        routeEditions
+      );
+      const currentlyBookmarked = Boolean(bookmarkedIds[bookmarkId]);
+      const result = currentlyBookmarked
+        ? removeBookmark(bookmarkId, routeEditions)
+        : addBookmark({
+            surahNumber: number,
+            ayahNumber: ayah.numberInSurah,
+            surahName: surah.localizedName,
+            editions: routeEditions,
+            excerpt: ayah.translations[0]?.text ?? "",
+            timestamp: new Date().toISOString(),
+          });
+
+      if (!result.saved) {
+        toast.error(t("detail.bookmarkFailed"));
+        return;
       }
-    }
-  }, [location.hash, loading]);
 
-  const handleCopyAyah = async (ayahText, ayahNumber) => {
-    const success = await copyToClipboard(ayahText);
-    if (success) {
-      toast.success(`Ayet ${ayahNumber} kopyalandı!`);
-    } else {
-      toast.error("Kopyalama başarısız");
-    }
-  };
+      setBookmarkedIds((current) => ({
+        ...current,
+        [bookmarkId]: !currentlyBookmarked,
+      }));
+      toast.success(
+        t(
+          currentlyBookmarked
+            ? "detail.bookmarkRemoved"
+            : "detail.bookmarkAdded"
+        )
+      );
+    },
+    [bookmarkedIds, number, routeEditions, surah, t]
+  );
 
-  const handleBookmark = (ayahNumber) => {
-    const ayahIndex = ayahNumber;
-    const currentlyBookmarked = bookmarks[ayahIndex];
+  const handlePlayAyah = useCallback(
+    (ayah) => {
+      if (!surah) return;
 
-    if (currentlyBookmarked) {
-      removeBookmark(`${number}-${ayahIndex}`);
-      toast.success("Yer imi kaldırıldı");
-    } else {
-      addBookmark(parseInt(number), ayahIndex, surah.englishName);
-      toast.success("Yer imi eklendi");
-    }
+      setActiveAyah(ayah);
+      saveLastRead({
+        surahNumber: number,
+        ayahNumber: ayah.numberInSurah,
+        editions: routeEditions,
+        surahName: surah.localizedName,
+      });
+    },
+    [number, routeEditions, surah]
+  );
 
-    setBookmarks({
-      ...bookmarks,
-      [ayahIndex]: !currentlyBookmarked,
-    });
-  };
+  const handleEditionChange = useCallback(
+    (nextEditions) => {
+      setEditions(nextEditions);
+      navigate(
+        `/surah/${number}/${encodeEditions(nextEditions)}${location.hash}`
+      );
+    },
+    [location.hash, navigate, number, setEditions]
+  );
 
   const handleShare = async () => {
+    if (!surah) return;
+
+    const title = t("common.surahName", { name: surah.localizedName });
     const shareData = {
-      title: `${surah.englishName} - ${surah.name}`,
-      text: `Kuran-ı Kerim - ${surah.englishName} suresini okuyun`,
+      title,
+      text: `${t("appName")} — ${title}`,
       url: window.location.href,
     };
 
     try {
       if (navigator.share) {
         await navigator.share(shareData);
-        toast.success("Paylaşıldı!");
-      } else {
-        await copyToClipboard(window.location.href);
-        toast.success("Link kopyalandı!");
+        toast.success(t("detail.shared"));
+        return;
       }
-    } catch (err) {
-      console.error("Share error:", err);
+
+      const copied = await copyToClipboard(window.location.href);
+      toast[copied ? "success" : "error"](
+        t(copied ? "detail.linkCopied" : "detail.linkCopyFailed")
+      );
+    } catch (shareError) {
+      if (shareError?.name === "AbortError") return;
+      console.error("Sharing failed", shareError);
+      toast.error(t("detail.shareFailed"));
     }
   };
 
   if (loading) {
-    return <LoadingSpinner />;
+    return <LoadingSkeleton variant="detail" />;
   }
 
   if (error || !surah) {
     return (
-      <div className="text-center py-12">
-        <p className="text-red-600 dark:text-red-400 mb-4">
-          {error || "Sure bulunamadı"}
+      <section className="py-12 text-center" role="alert">
+        <p className="mb-5 text-red-600 dark:text-red-400">
+          {t(error || "detail.notFound")}
         </p>
-        <button
-          onClick={() => navigate("/surahs")}
-          className="px-6 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors"
-        >
-          Surelere Dön
-        </button>
-      </div>
+        <div className="flex flex-col justify-center gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={() => navigate("/surahs")}
+            className="rounded-xl border border-gray-300 px-6 py-3 text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:text-gray-100 dark:hover:bg-gray-800"
+          >
+            {t("common.backToSurahs")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setRetryToken((value) => value + 1)}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-6 py-3 text-white transition-colors hover:bg-primary-700"
+          >
+            <RefreshCw aria-hidden="true" className="h-5 w-5" />
+            {t("common.retry")}
+          </button>
+          {preferredEditionKey !== routeEditionKey ? (
+            <button
+              type="button"
+              onClick={() =>
+                navigate(`/surah/${number}/${preferredEditionKey}`)
+              }
+              className="rounded-xl bg-primary-600 px-6 py-3 text-white transition-colors hover:bg-primary-700"
+            >
+              {t("detail.openPreferred")}
+            </button>
+          ) : null}
+        </div>
+      </section>
     );
   }
 
   return (
     <div className="space-y-8">
-      <Toaster position="top-right" />
-
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="space-y-4"
-      >
+      <header className="space-y-5">
         <button
+          type="button"
           onClick={() => navigate("/surahs")}
-          className="flex items-center space-x-2 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+          className="flex items-center gap-2 text-gray-600 transition-colors hover:text-primary-600 dark:text-gray-300 dark:hover:text-primary-400"
         >
-          <ArrowLeft className="w-5 h-5" />
-          <span>Surelere Dön</span>
+          <ArrowLeft aria-hidden="true" className="h-5 w-5 rtl:rotate-180" />
+          <span>{t("common.backToSurahs")}</span>
         </button>
 
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
           <div className="space-y-2">
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white">
-              {surah.englishName}
+            <h1 className="text-4xl font-bold text-gray-900 dark:text-white md:text-5xl">
+              {t("common.surahName", { name: surah.localizedName })}
             </h1>
-            <p className="text-xl text-gray-600 dark:text-gray-400">
-              {surah.englishNameTranslation}
-            </p>
-            <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+            <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-300">
               <span>
-                {surah.revelationType === "Meccan" ? "Mekki" : "Medeni"}
+                {t(
+                  surah.revelationType === "Meccan"
+                    ? "common.meccan"
+                    : "common.medinan"
+                )}
               </span>
-              <span>•</span>
-              <span>{surah.numberOfAyahs} Ayet</span>
+              <span aria-hidden="true">·</span>
+              <span>
+                {t("common.ayahCountLabel", { value: surah.numberOfAyahs })}
+              </span>
             </div>
+            <p className="text-sm font-medium text-primary-700 dark:text-primary-300">
+              {t("detail.activeTranslations", {
+                names: surah.translations.map((edition) => edition.name).join(", "),
+              })}
+            </p>
           </div>
 
-          <div className="flex flex-col items-end space-y-2">
-            <h2 className="arabic-text text-4xl text-gray-800 dark:text-white font-bold">
-              {surah.name}
-            </h2>
-            <button
-              onClick={handleShare}
-              className="flex items-center space-x-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+          <div className="flex flex-col items-start gap-3 md:items-end">
+            <p
+              lang="ar"
+              dir="rtl"
+              className="arabic-text text-4xl font-bold text-gray-800 dark:text-white"
             >
-              <Share2 className="w-4 h-4" />
-              <span>Paylaş</span>
+              {surah.name}
+            </p>
+            <button
+              type="button"
+              onClick={handleShare}
+              className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
+            >
+              <Share2 aria-hidden="true" className="h-4 w-4" />
+              <span>{t("common.share")}</span>
             </button>
           </div>
         </div>
-      </motion.div>
 
-      {/* Audio Player */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
+        <div className="max-w-3xl">
+          <EditionSelect
+            id="detail-editions"
+            editions={availableEditions}
+            value={routeEditions}
+            onChange={handleEditionChange}
+            disabled={availableEditions.length === 0}
+          />
+          {editionError ? (
+            <p
+              className="mt-2 text-sm text-amber-700 dark:text-amber-300"
+              role="status"
+            >
+              {t("picker.unavailable")}
+            </p>
+          ) : null}
+        </div>
+      </header>
+
+      <motion.section
+        initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.1 }}
-        className="glass rounded-2xl p-6"
+        className="glass rounded-2xl p-5 md:p-6"
+        aria-label={t("detail.audio")}
       >
-        <div className="flex items-center space-x-3 mb-4">
-          <Volume2 className="w-5 h-5 text-primary-600" />
-          <h3 className="font-semibold text-gray-900 dark:text-white">
-            Surenin Tamamını Dinle
-          </h3>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            {activeAyah ? (
+              <ListMusic aria-hidden="true" className="h-5 w-5 text-primary-600" />
+            ) : (
+              <Volume2 aria-hidden="true" className="h-5 w-5 text-primary-600" />
+            )}
+            <div>
+              <h2
+                className="font-semibold text-gray-900 dark:text-white"
+                aria-live="polite"
+              >
+                {activeAyah
+                  ? t("detail.listeningAyah", {
+                      number: activeAyah.numberInSurah,
+                    })
+                  : t("detail.listenFull")}
+              </h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {t("detail.reciter")}
+              </p>
+            </div>
+          </div>
+
+          {activeAyah ? (
+            <button
+              type="button"
+              onClick={() => setActiveAyah(null)}
+              className="text-sm font-medium text-primary-700 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-200"
+            >
+              {t("detail.returnFull")}
+            </button>
+          ) : null}
         </div>
         <AudioPlayer
-          src={getSurahAudioUrl(number)}
+          src={activeAudioUrl}
+          preload="none"
           className="rounded-xl"
-          autoPlayAfterSrcChange={false}
+          autoPlayAfterSrcChange={Boolean(activeAyah)}
           showJumpControls={false}
-          customAdditionalControls={[]}
+          customAdditionalControls={EMPTY_CONTROLS}
         />
-      </motion.div>
+      </motion.section>
 
-      {/* Ayahs */}
-      <div className="space-y-6">
-        {surah.ayahs.map((ayah, index) => (
-          <motion.div
-            key={ayah.number}
-            id={`ayah-${index + 1}`}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.03 }}
-            className="glass rounded-2xl p-6 space-y-4 border border-gray-200 dark:border-gray-700 scroll-mt-24"
-          >
-            {/* Ayah Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center space-x-3">
-                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-emerald-600 text-white font-bold text-sm">
-                  {index + 1}
-                </div>
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  Ayet {index + 1}
-                </span>
-              </div>
+      <section
+        className="space-y-6"
+        aria-label={t("detail.ayahsLabel", { name: surah.localizedName })}
+      >
+        {surah.ayahs.map((ayah) => {
+          const bookmarkId = getBookmarkId(
+            number,
+            ayah.numberInSurah,
+            routeEditions
+          );
 
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => handleCopyAyah(ayah.text, index + 1)}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                  title="Kopyala"
-                >
-                  <Copy className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                </button>
-                <button
-                  onClick={() => handleBookmark(index + 1)}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                  title={
-                    bookmarks[index + 1] ? "Yer imini kaldır" : "Yer imi ekle"
-                  }
-                >
-                  {bookmarks[index + 1] ? (
-                    <BookmarkCheck className="w-4 h-4 text-primary-600" />
-                  ) : (
-                    <Bookmark className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                  )}
-                </button>
-              </div>
-            </div>
+          return (
+            <AyahCard
+              key={ayah.number}
+              ayah={ayah}
+              bookmarked={Boolean(bookmarkedIds[bookmarkId])}
+              isActiveAudio={activeAyah?.number === ayah.number}
+              onBookmark={handleBookmark}
+              onCopy={handleCopyAyah}
+              onPlay={handlePlayAyah}
+            />
+          );
+        })}
+      </section>
 
-            {/* Translation */}
-            <p className="text-lg leading-relaxed text-gray-700 dark:text-gray-100">
-              {ayah.text}
-            </p>
-
-            {/* Arabic Image */}
-            <div className="flex justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-600">
-              <img
-                src={getAyahImageUrl(number, index + 1)}
-                alt={`Ayah ${index + 1}`}
-                className="max-w-full h-auto dark:invert"
-                loading="lazy"
-              />
-            </div>
-
-            {/* Ayah Audio */}
-            <div className="pt-4">
-              <AudioPlayer
-                src={getAyahAudioUrl(ayah.number)}
-                className="rounded-lg"
-                autoPlayAfterSrcChange={false}
-                showJumpControls={false}
-                customAdditionalControls={[]}
-                layout="horizontal-reverse"
-              />
-            </div>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Navigation */}
-      <div className="flex justify-between items-center pt-8">
-        {parseInt(number) > 1 && (
+      <nav
+        aria-label={t("detail.navigation")}
+        className="flex items-center justify-between pt-8"
+      >
+        {Number(number) > 1 ? (
           <button
+            type="button"
             onClick={() =>
-              navigate(`/surah/${parseInt(number) - 1}/${edition}`)
+              navigate(`/surah/${Number(number) - 1}/${routeEditionKey}`)
             }
-            className="flex items-center space-x-2 px-6 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors"
+            className="flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-3 text-white transition-colors hover:bg-primary-700 sm:px-6"
           >
-            <ArrowLeft className="w-5 h-5" />
-            <span>Önceki Sure</span>
+            <ArrowLeft aria-hidden="true" className="h-5 w-5 rtl:rotate-180" />
+            <span>{t("detail.previous")}</span>
           </button>
-        )}
+        ) : null}
 
-        {parseInt(number) < 114 && (
+        {Number(number) < 114 ? (
           <button
+            type="button"
             onClick={() =>
-              navigate(`/surah/${parseInt(number) + 1}/${edition}`)
+              navigate(`/surah/${Number(number) + 1}/${routeEditionKey}`)
             }
-            className="flex items-center space-x-2 px-6 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors ml-auto"
+            className="ms-auto flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-3 text-white transition-colors hover:bg-primary-700 sm:px-6"
           >
-            <span>Sonraki Sure</span>
-            <ArrowLeft className="w-5 h-5 rotate-180" />
+            <span>{t("detail.next")}</span>
+            <ArrowLeft aria-hidden="true" className="h-5 w-5 rotate-180 rtl:rotate-0" />
           </button>
-        )}
-      </div>
+        ) : null}
+      </nav>
     </div>
   );
 };
